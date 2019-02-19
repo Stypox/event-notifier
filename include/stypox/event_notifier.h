@@ -6,6 +6,13 @@
 #include <variant>
 
 namespace stypox {
+	template <typename T, typename = std::void_t<>>
+	struct is_hashable : std::false_type {};
+	template <typename T>
+	struct is_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type {};
+	template <typename T>
+	constexpr bool is_hashable_v = is_hashable<T>::value; 
+
 	class M_EventFunctionBase {
 	public:
 		virtual ~M_EventFunctionBase() {};
@@ -74,7 +81,7 @@ namespace stypox {
 				for(auto&& function : std::get<functions_t>(functions))
 					function->call(reinterpret_cast<void*>(&event));
 			}
-			else {
+			else if constexpr(is_hashable_v<T>) {
 				for(auto&& function : std::get<hash_to_functions_t>(functions)[std::hash<T>{}(event)])
 					function->call(reinterpret_cast<void*>(&event));
 			}
