@@ -13,27 +13,28 @@ namespace stypox {
 	template <typename T>
 	constexpr bool is_hashable_v = is_hashable<T>::value; 
 
-	class M_EventFunctionBase {
-	public:
-		virtual ~M_EventFunctionBase() {};
-		virtual void call(void* data) = 0;
-	};
-
-	template<class R, class A>
-	class M_EventFunction : public M_EventFunctionBase {
-	public:
-		using argument_type = A;
-		std::function<R(argument_type)> m_function;
-
-		~M_EventFunction() override {};
-		M_EventFunction(std::function<R(argument_type)> function) :
-			m_function{function} {}
-		void call(void* data) override {
-			m_function(*static_cast<argument_type*>(data));
-		}
-	};
-
 	class EventNotifier {
+		class M_EventFunctionBase {
+		public:
+			virtual ~M_EventFunctionBase() {};
+			virtual void call(void* data) = 0;
+		};
+
+		template<class R, class A>
+		class M_EventFunction : public M_EventFunctionBase {
+		public:
+			using argument_type = A;
+			std::function<R(argument_type)> m_function;
+
+			~M_EventFunction() override {};
+			M_EventFunction(std::function<R(argument_type)> function) :
+				m_function{function} {}
+			void call(void* data) override {
+				m_function(*static_cast<argument_type*>(data));
+			}
+		};
+
+	
 		using functions_t = std::vector<std::unique_ptr<M_EventFunctionBase>>;
 		using hash_to_functions_t = std::map<size_t, functions_t>;
 		std::map<size_t, std::variant<functions_t, hash_to_functions_t>> m_functions;
