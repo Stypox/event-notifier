@@ -75,6 +75,19 @@ namespace stypox {
 				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
 		}
 
+		template<class E, class T, class F>
+		void connectMember(E event, T& object, F memberFunction) {
+			connect(event, [&object, memberFunction](E event){
+				(object.*memberFunction)(event);
+			});
+		}
+		template<class E, class T, class F>
+		void connectMember(T& object, F memberFunction) {
+			connect<E>([&object, memberFunction](E event){
+				(object.*memberFunction)(event);
+			});
+		}
+
 		template<class E>
 		void notify(E event) {
 			auto& functions = m_functions[typeid(event).hash_code()];
