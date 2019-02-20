@@ -11,7 +11,7 @@ namespace stypox {
 	template <typename T>
 	struct is_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type {};
 	template <typename T>
-	constexpr bool is_hashable_v = is_hashable<T>::value; 
+	constexpr bool is_hashable_v = is_hashable<T>::value;
 
 	class EventNotifier {
 		class M_EventFunctionBase {
@@ -34,7 +34,7 @@ namespace stypox {
 			}
 		};
 
-	
+
 		using functions_t = std::vector<std::unique_ptr<M_EventFunctionBase>>;
 		using hash_to_functions_t = std::map<size_t, functions_t>;
 		std::map<size_t, std::variant<functions_t, hash_to_functions_t>> m_functions;
@@ -42,11 +42,11 @@ namespace stypox {
 		template<class T, class F>
 		void connect(T event, F function) {
 			auto eventFunction = new M_EventFunction{std::function{function}};
-			
+
 			// check that the only @function argument is the same type as @event
 			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
 			static_assert(std::is_same_v<T, argument_type>,
-				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");	
+				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
 
 			size_t type_hash = typeid(event).hash_code();
 			size_t event_hash = std::hash<T>{}(event);
@@ -65,7 +65,7 @@ namespace stypox {
 			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
 			static_assert(std::is_same_v<T, argument_type>,
 				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
-			
+
 			size_t type_hash = typeid(T).hash_code();
 
 			// add function to map
