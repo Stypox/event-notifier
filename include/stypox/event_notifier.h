@@ -34,11 +34,31 @@ namespace stypox {
 			}
 		};
 
-
 		using functions_t = std::vector<std::unique_ptr<M_EventFunctionBase>>;
 		using hash_to_functions_t = std::map<size_t, functions_t>;
-		std::map<size_t, std::variant<functions_t, hash_to_functions_t>> m_functions;
+
+		// functions to be notified when the event type corresponds
+		std::map<size_t, functions_t> m_typeFunctions;
+		// functions to be notified only when both the type and the value of the event correspond
+		std::map<size_t, hash_to_functions_t> m_valueFunctions;
 	public:
+		// add [function] to be called when an event of type [E] happens
+		template<class E, class F>
+		void connect(F function) {
+			auto eventFunction = new M_EventFunction{std::function{function}};
+
+			// check that the only [function] argument is the same type as [event]
+			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
+			static_assert(std::is_same_v<E, argument_type>,
+				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
+
+			size_t typeHash = typeid(E).hash_code();
+
+			// add function to map
+			m_typeFunctions[typeHash]
+				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
+		}
+		// add [function] to be called when an event of type [E] with the same std::hash as [event] happens
 		template<class E, class F>
 		void connect(E event, F function) {
 			auto eventFunction = new M_EventFunction{std::function{function}};
@@ -48,55 +68,37 @@ namespace stypox {
 			static_assert(std::is_same_v<E, argument_type>,
 				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
 
-			size_t type_hash = typeid(event).hash_code();
-			size_t event_hash = std::hash<E>{}(event);
+			size_t typeHash = typeid(event).hash_code();
+			size_t eventHash = std::hash<E>{}(event);
 
 			// add function to map
-			if (!m_functions.count(type_hash))
-				m_functions.insert({type_hash, hash_to_functions_t{}});
-			std::get<hash_to_functions_t>(m_functions[type_hash])[event_hash]
-				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
-		}
-		template<class E, class F>
-		void connect(F function) {
-			auto eventFunction = new M_EventFunction{std::function{function}};
-
-			// check that the only @function argument is the same type as @event
-			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
-			static_assert(std::is_same_v<E, argument_type>,
-				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
-
-			size_t type_hash = typeid(E).hash_code();
-
-			// add function to map
-			if (!m_functions.count(type_hash))
-				m_functions.insert({type_hash, functions_t{}});
-			std::get<functions_t>(m_functions[type_hash])
+			m_valueFunctions[typeHash][eventHash]
 				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
 		}
 
-		template<class E, class T, class F>
-		void connectMember(E event, T& object, F memberFunction) {
-			connect(event, [&object, memberFunction](E event){
-				(object.*memberFunction)(event);
-			});
-		}
+		// add [memberFunction] to be called on [object] when an event of type [E] happens
 		template<class E, class T, class F>
 		void connectMember(T& object, F memberFunction) {
 			connect<E>([&object, memberFunction](E event){
 				(object.*memberFunction)(event);
 			});
 		}
+		// add [memberFunction] to be called on [object] when an event of type [E] with the same std::hash as [event] happens
+		template<class E, class T, class F>
+		void connectMember(E event, T& object, F memberFunction) {
+			connect(event, [&object, memberFunction](E event){
+				(object.*memberFunction)(event);
+			});
+		}
 
 		template<class E>
 		void notify(E event) {
-			auto& functions = m_functions[typeid(event).hash_code()];
-			if (std::holds_alternative<functions_t>(functions)) {
-				for(auto&& function : std::get<functions_t>(functions))
-					function->call(reinterpret_cast<void*>(&event));
-			}
-			else if constexpr(is_hashable_v<E>) {
-				for(auto&& function : std::get<hash_to_functions_t>(functions)[std::hash<E>{}(event)])
+			size_t typeHash = typeid(event).hash_code();
+
+			for(auto&& function : m_typeFunctions[typeHash])
+				function->call(reinterpret_cast<void*>(&event));
+			if constexpr(is_hashable_v<E>) {
+				for(auto&& function : m_valueFunctions[typeHash][std::hash<E>{}(event)])
 					function->call(reinterpret_cast<void*>(&event));
 			}
 		}
