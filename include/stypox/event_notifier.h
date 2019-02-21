@@ -20,17 +20,22 @@ namespace stypox {
 			virtual void call(void* data) = 0;
 		};
 
-		template<class R, class A>
+		template<class R, class... Args>
 		class M_EventFunction : public M_EventFunctionBase {
 		public:
-			using argument_type = A;
-			std::function<R(argument_type)> m_function;
+			static constexpr size_t argCount = sizeof...(Args);
+			//chooses void only when argCount == 0
+			using argument_type = std::tuple_element_t<0, std::tuple<Args..., void>>;
+			std::function<R(Args...)> m_function;
 
 			~M_EventFunction() override {};
-			M_EventFunction(std::function<R(argument_type)> function) :
+			M_EventFunction(std::function<R(Args...)> function) :
 				m_function{function} {}
 			void call(void* data) override {
-				m_function(*static_cast<argument_type*>(data));
+				if constexpr(argCount == 0)
+					m_function();
+				else
+					m_function(*static_cast<argument_type*>(data));
 			}
 		};
 
@@ -49,8 +54,9 @@ namespace stypox {
 
 			// check that the only [function] argument is the same type as [event]
 			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
-			static_assert(std::is_same_v<E, argument_type>,
-				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
+			constexpr size_t argCount = std::remove_pointer_t<decltype(eventFunction)>::argCount;
+			static_assert(argCount == 0 || (argCount == 1 && std::is_same_v<E, argument_type>),
+				"The function passed to stypox::EventNotifier::connect must either take no argument or exaclty one of the same type of the event.");
 
 			size_t typeHash = typeid(E).hash_code();
 
@@ -63,10 +69,11 @@ namespace stypox {
 		void connect(E event, F function) {
 			auto eventFunction = new M_EventFunction{std::function{function}};
 
-			// check that the only @function argument is the same type as @event
+			// check that the only [function] argument is the same type as [event]
 			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
-			static_assert(std::is_same_v<E, argument_type>,
-				"The function passed to stypox::EventNotifier::connect must take one argument of the same type of event.");
+			constexpr size_t argCount = std::remove_pointer_t<decltype(eventFunction)>::argCount;
+			static_assert(argCount == 0 || (argCount == 1 && std::is_same_v<E, argument_type>),
+				"The function passed to stypox::EventNotifier::connect must either take no argument or exaclty one of the same type of the event.");
 
 			size_t typeHash = typeid(event).hash_code();
 			size_t eventHash = std::hash<E>{}(event);
@@ -77,18 +84,28 @@ namespace stypox {
 		}
 
 		// add [memberFunction] to be called on [object] when an event of type [E] happens
-		template<class E, class T, class F>
-		void connectMember(T& object, F memberFunction) {
-			connect<E>([&object, memberFunction](E event){
-				(object.*memberFunction)(event);
-			});
+		template<class E, class T, class R, class... Args>
+		void connectMember(T& object, R(T::*memberFunction)(Args...)) {
+			if constexpr (sizeof...(Args) == 0)
+				connect<E>([&object, memberFunction](){
+					(object.*memberFunction)();
+				});
+			else
+				connect<E>([&object, memberFunction](E event){
+					(object.*memberFunction)(event);
+				});
 		}
 		// add [memberFunction] to be called on [object] when an event of type [E] with the same std::hash as [event] happens
-		template<class E, class T, class F>
-		void connectMember(E event, T& object, F memberFunction) {
-			connect(event, [&object, memberFunction](E event){
-				(object.*memberFunction)(event);
-			});
+		template<class E, class T, class R, class... Args>
+		void connectMember(E event, T& object, R(T::*memberFunction)(Args...)) {
+			if constexpr (sizeof...(Args) == 0)
+				connect(event, [&object, memberFunction](){
+					(object.*memberFunction)();
+				});
+			else
+				connect(event, [&object, memberFunction](E event){
+					(object.*memberFunction)(event);
+				});
 		}
 
 		template<class E>
