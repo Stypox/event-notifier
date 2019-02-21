@@ -22,11 +22,11 @@ namespace stypox {
 
 		template<class R, class... Args>
 		class M_EventFunction : public M_EventFunctionBase {
+			std::function<R(Args...)> m_function;
 		public:
 			static constexpr size_t argCount = sizeof...(Args);
 			//chooses void only when argCount == 0
 			using argument_type = std::tuple_element_t<0, std::tuple<Args..., void>>;
-			std::function<R(Args...)> m_function;
 
 			~M_EventFunction() override {};
 			M_EventFunction(std::function<R(Args...)> function) :
@@ -39,6 +39,29 @@ namespace stypox {
 			}
 		};
 
+		template<class T, class R, class... Args>
+		class M_EventMemberFunction : public M_EventFunctionBase {
+			T& m_object;
+			R(T::*m_function)(Args...);
+		public:
+			static constexpr size_t argCount = sizeof...(Args);
+			//chooses void only when argCount == 0
+			using argument_type = std::tuple_element_t<0, std::tuple<Args..., void>>;
+
+			~M_EventMemberFunction() override {};
+			M_EventMemberFunction(T& object, R(T::*function)(Args...)) :
+				m_object{object}, m_function{function} {}
+			void call(void* data) override {
+				if constexpr(argCount == 0)
+					(m_object.*m_function)();
+				else
+					(m_object.*m_function)(*static_cast<argument_type*>(data));
+			}
+		};
+
+		template<class F, class E>
+		static constexpr bool isEventFunctionValid = F::argCount == 0 || (F::argCount == 1 && std::is_same_v<E, typename F::argument_type>);
+
 		using functions_t = std::vector<std::unique_ptr<M_EventFunctionBase>>;
 		using hash_to_functions_t = std::map<size_t, functions_t>;
 
@@ -50,62 +73,47 @@ namespace stypox {
 		// add [function] to be called when an event of type [E] happens
 		template<class E, class F>
 		void connect(F function) {
-			auto eventFunction = new M_EventFunction{std::function{function}};
-
-			// check that the only [function] argument is the same type as [event]
-			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
-			constexpr size_t argCount = std::remove_pointer_t<decltype(eventFunction)>::argCount;
-			static_assert(argCount == 0 || (argCount == 1 && std::is_same_v<E, argument_type>),
-				"The function passed to stypox::EventNotifier::connect must either take no argument or exaclty one of the same type of the event.");
-
-			size_t typeHash = typeid(E).hash_code();
-
 			// add function to map
-			m_typeFunctions[typeHash]
+			auto eventFunction = new M_EventFunction{std::function{function}};
+			m_typeFunctions[typeid(E).hash_code()]
 				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
+
+			static_assert(isEventFunctionValid<typename std::remove_pointer_t<decltype(eventFunction)>, E>,
+				"function takes either no argument or exaclty one of the same type of the event");
 		}
 		// add [function] to be called when an event of type [E] with the same std::hash as [event] happens
 		template<class E, class F>
 		void connect(E event, F function) {
-			auto eventFunction = new M_EventFunction{std::function{function}};
-
-			// check that the only [function] argument is the same type as [event]
-			using argument_type = typename std::remove_pointer_t<decltype(eventFunction)>::argument_type;
-			constexpr size_t argCount = std::remove_pointer_t<decltype(eventFunction)>::argCount;
-			static_assert(argCount == 0 || (argCount == 1 && std::is_same_v<E, argument_type>),
-				"The function passed to stypox::EventNotifier::connect must either take no argument or exaclty one of the same type of the event.");
-
-			size_t typeHash = typeid(event).hash_code();
-			size_t eventHash = std::hash<E>{}(event);
-
 			// add function to map
-			m_valueFunctions[typeHash][eventHash]
+			auto eventFunction = new M_EventFunction{std::function{function}};
+			m_valueFunctions[typeid(event).hash_code()][std::hash<E>{}(event)]
 				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
+
+			static_assert(isEventFunctionValid<typename std::remove_pointer_t<decltype(eventFunction)>, E>,
+				"function takes either no argument or exaclty one of the same type of the event");
 		}
 
 		// add [memberFunction] to be called on [object] when an event of type [E] happens
 		template<class E, class T, class R, class... Args>
 		void connectMember(T& object, R(T::*memberFunction)(Args...)) {
-			if constexpr (sizeof...(Args) == 0)
-				connect<E>([&object, memberFunction](){
-					(object.*memberFunction)();
-				});
-			else
-				connect<E>([&object, memberFunction](E event){
-					(object.*memberFunction)(event);
-				});
+			// add function to map
+			auto eventFunction = new M_EventMemberFunction{object, memberFunction};
+			m_typeFunctions[typeid(E).hash_code()]
+				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
+
+			static_assert(isEventFunctionValid<typename std::remove_pointer_t<decltype(eventFunction)>, E>,
+				"function takes either no argument or exaclty one of the same type of the event");
 		}
 		// add [memberFunction] to be called on [object] when an event of type [E] with the same std::hash as [event] happens
 		template<class E, class T, class R, class... Args>
 		void connectMember(E event, T& object, R(T::*memberFunction)(Args...)) {
-			if constexpr (sizeof...(Args) == 0)
-				connect(event, [&object, memberFunction](){
-					(object.*memberFunction)();
-				});
-			else
-				connect(event, [&object, memberFunction](E event){
-					(object.*memberFunction)(event);
-				});
+			// add function to map
+			auto eventFunction = new M_EventMemberFunction{object, memberFunction};
+			m_valueFunctions[typeid(event).hash_code()][std::hash<E>{}(event)]
+				.push_back(std::unique_ptr<M_EventFunctionBase>{eventFunction});
+
+			static_assert(isEventFunctionValid<typename std::remove_pointer_t<decltype(eventFunction)>, E>,
+				"function takes either no argument or exaclty one of the same type of the event");
 		}
 
 		template<class E>
