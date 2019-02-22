@@ -82,16 +82,22 @@ public:
 		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, E>,
 			"function takes either no argument or exaclty one of the same type of the event");
 	}
-	// add [function] to be called when an event of type [E] with the same std::hash as [event] happens
-	template<class E, class F>
-	void connect(E event, F function) {
+	// add [function] for every i, to be called when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
+	template<class F, size_t I = 0, class... Events>
+	void connect(F function, Events... events) {
+		auto event = std::get<I>(std::tuple<Events...>(events...));
+		using event_type = decltype(event);
+
 		// add function to map
 		auto event_function = new M_EventFunction{std::function{function}};
-		m_value_functions[typeid(event).hash_code()][std::hash<E>{}(event)]
+		m_value_functions[typeid(event).hash_code()][std::hash<event_type>{}(event)]
 			.push_back(std::unique_ptr<M_EventFunctionBase>{event_function});
 
-		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, E>,
+		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, event_type>,
 			"function takes either no argument or exaclty one of the same type of the event");
+
+		if constexpr(I+1 != sizeof...(Events))
+			connect<F, I+1>(function, events...);
 	}
 
 	// add [member_function] to be called on [object] when an event of type [E] happens
@@ -105,16 +111,22 @@ public:
 		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, E>,
 			"function takes either no argument or exaclty one of the same type of the event");
 	}
-	// add [member_function] to be called on [object] when an event of type [E] with the same std::hash as [event] happens
-	template<class E, class T, class R, class... Args>
-	void connect_member(E event, T& object, R(T::*member_function)(Args...)) {
+	// add [member_function] for every i, to be called on [object] when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
+	template<class T, class R, size_t I = 0, class... Args, class... Events>
+	void connect_member(T& object, R(T::*member_function)(Args...), Events... events) {
+		auto event = std::get<I>(std::tuple<Events...>(events...));
+		using event_type = decltype(event);
+		
 		// add function to map
 		auto event_function = new M_EventMemberFunction{object, member_function};
-		m_value_functions[typeid(event).hash_code()][std::hash<E>{}(event)]
+		m_value_functions[typeid(event).hash_code()][std::hash<event_type>{}(event)]
 			.push_back(std::unique_ptr<M_EventFunctionBase>{event_function});
 
-		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, E>,
+		static_assert(is_event_function_valid<typename std::remove_pointer_t<decltype(event_function)>, event_type>,
 			"function takes either no argument or exaclty one of the same type of the event");
+
+		if constexpr(I+1 != sizeof...(Events))
+			connect_member<T, R, I+1>(object, member_function, events...);
 	}
 
 	template<class E>
