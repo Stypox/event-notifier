@@ -156,7 +156,7 @@ private:
 public:
 	// add [function] to be called when an event of type [E] happens
 	template<class E, class F>
-	Handler connect(F function) {
+	[[nodiscard]] Handler connect(F function) {
 		size_t type_hash = typeid(E).hash_code();
 
 		auto event_function = new M_EventFunction{std::function{function}};
@@ -168,7 +168,7 @@ public:
 	}
 	// add [function] for every i, to be called when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
 	template<class F, size_t I = 0, class... Events>
-	Handler connect(F function, Events... events) {
+	[[nodiscard]] Handler connect(F function, Events... events) {
 		Handler handler{this};
 		connect_impl(handler, function, events...);
 		return handler;
@@ -176,7 +176,7 @@ public:
 
 	// add [member_function] to be called on [object] when an event of type [E] happens
 	template<class E, class T, class R, class... Args>
-	Handler connect_member(T& object, R(T::*member_function)(Args...)) {
+	[[nodiscard]] Handler connect_member(T& object, R(T::*member_function)(Args...)) {
 		size_t type_hash = typeid(E).hash_code();
 
 		auto event_function = new M_EventMemberFunction{object, member_function};
@@ -188,7 +188,7 @@ public:
 	}
 	// add [member_function] for every i, to be called on [object] when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
 	template<class T, class R, class... Args, class... Events>
-	Handler connect_member(T& object, R(T::*member_function)(Args...), Events... events) {
+	[[nodiscard]] Handler connect_member(T& object, R(T::*member_function)(Args...), Events... events) {
 		Handler handler{this};
 		connect_member_impl(handler, object, member_function, events...);
 		return handler;
