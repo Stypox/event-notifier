@@ -1,4 +1,4 @@
-# event-notifier
+# Event notifier
 A **C++ header-only** library that lets you **connect events to functions** with a **small** and **intuitive** interface. When an event occours, all the functions connected to it are called. **Member functions** (like `game.pause()`) are supported, too!
 # Connect events to functions
 When connecting some events to a function, you can choose whether to **connect all events** of that type to the function **or only some** (based on `std::hash<Event>`) [``en`` is an EventNotifier]:
