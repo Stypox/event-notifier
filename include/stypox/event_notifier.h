@@ -76,6 +76,7 @@ public:
 		Handler(EventNotifier* eventNotifier) :
 			m_eventNotifier{eventNotifier} {}
 	public:
+		// empty Handler makes sense: disconnect() simply does nothing
 		Handler() = default;
 		Handler(Handler&&) = default;
 		Handler& operator=(Handler&&) = default;
@@ -83,9 +84,19 @@ public:
 		~Handler() {
 			disconnect();
 		}
-		void keep() { // WARNING use this only when the connected functions do not own resources that are destructed before the main EventNotifier is
+		/* 
+			@brief removes the ownership over the handled functions:
+				this means disconnect() does nothing, after a call to keep().
+			WARNING use this only when the connected function does not own
+				resources that are destructed before the main EventNotifier is.
+		*/
+		void keep() {
 			m_positions.resize(0);
 		}
+		/*
+			@brief removes the handled function from every position it
+				appears in.
+		*/
 		void disconnect() {
 			functions_t* functions;
 			for (auto&& position : m_positions) {
@@ -158,7 +169,15 @@ private:
 			connect_member_impl<T, R, I+1>(handler, object, member_function, events...);
 	}
 public:
-	// add [function] to be called when an event of type [E] happens
+	/* 
+		@brief adds @param function to be called when an event of type @tparam E
+			happens.
+		@return a Handler that should not be discarded, because the function
+			will be disconnected upon its destruction. See Handler for more info.
+		@tparam E type of events.
+		@param function should be convertible to a std::function that takes
+			either nothing or an event of type @tparam E.
+	*/
 	template<class E, class F>
 	[[nodiscard]] Handler connect(F function) {
 		size_t type_hash = typeid(E).hash_code();
@@ -170,7 +189,15 @@ public:
 		handler.m_positions.push_back({type_hash, event_function});
 		return handler;
 	}
-	// add [function] for every i, to be called when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
+	/* 
+		@brief adds @param function to be called when an event that has the same
+			std::hash as one of the elements of @param events happens.
+		@return a Handler that should not be discarded, because the function
+			will be disconnected upon its destruction. See Handler for more info.
+		@param function should be convertible to a std::function that takes
+			either nothing or an event of one of the types in @tparam Events.
+		@param events one or more events.
+	*/
 	template<class F, size_t I = 0, class... Events>
 	[[nodiscard]] Handler connect(F function, Events... events) {
 		Handler handler{this};
@@ -178,7 +205,16 @@ public:
 		return handler;
 	}
 
-	// add [member_function] to be called on [object] when an event of type [E] happens
+	/* 
+		@brief adds @param member_function to be called on @param object when an
+			event of type @tparam E happens.
+		@return a Handler that should not be discarded, because the function
+			will be disconnected upon its destruction. See Handler for more info.
+		@tparam E type of events.
+		@param object on which to call @param member_function.
+		@param member_function that refers to the type of @param object. It must
+			take either nothing or an event of type @tparam E.
+	*/
 	template<class E, class T, class R, class... Args>
 	[[nodiscard]] Handler connect_member(T& object, R(T::*member_function)(Args...)) {
 		size_t type_hash = typeid(E).hash_code();
@@ -190,7 +226,17 @@ public:
 		handler.m_positions.push_back({type_hash, event_function});
 		return handler;
 	}
-	// add [member_function] for every i, to be called on [object] when an event of type [Events](at index i) with the same std::hash as [events](at index i) happens
+	/* 
+		@brief adds @param member_function to be called on @param object when an
+			event that has the same std::hash as one of the elements of
+			@param events happens.
+		@return a Handler that should not be discarded, because the function
+			will be disconnected upon its destruction. See Handler for more info.
+		@param object on which to call @param member_function.
+		@param member_function that refers to the type of @param object. It must
+			take either nothing or an event of one of the types in @tparam Events.
+		@param events one or more events.
+	*/
 	template<class T, class R, class... Args, class... Events>
 	[[nodiscard]] Handler connect_member(T& object, R(T::*member_function)(Args...), Events... events) {
 		Handler handler{this};
@@ -198,6 +244,10 @@ public:
 		return handler;
 	}
 
+	/*
+		@brief notifies of @param event every function connected to it
+		@param event to be notified
+	*/
 	template<class E>
 	void notify(E event) {
 		size_t type_hash = typeid(event).hash_code();
