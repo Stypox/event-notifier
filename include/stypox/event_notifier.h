@@ -70,12 +70,16 @@ public:
 			M_EventFunctionBase* pointer;
 		};
 
-		EventNotifier* const m_eventNotifier;
+		EventNotifier* m_eventNotifier;
 		std::vector<M_Position> m_positions;
 		
 		Handler(EventNotifier* eventNotifier) :
 			m_eventNotifier{eventNotifier} {}
 	public:
+		Handler() = default;
+		Handler(Handler&&) = default;
+		Handler& operator=(Handler&&) = default;
+
 		~Handler() {
 			disconnect();
 		}
