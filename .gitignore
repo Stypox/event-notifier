@@ -6,5 +6,4 @@
 GPATH
 GTAGS
 GRTAGS
-Makefile
 src/main.cpp
