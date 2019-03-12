@@ -18,11 +18,11 @@ When you want an event to occour, you have to **pass it to the EventNotifier** t
 For example: `en.notify(Click{right})`
 
 # Installation
-To use this library just download the header file `event_notifier.h` and `#include` it in your project! If you want to `#include` it as `<stypox/event_notifier.h>` you need to add `-IPATH/TO/event-notifier/include` to your compiler options. Note: it requires C++17, so add to your compiler options `-std=c++17`.
+To use this library just download the header file `event_notifier.hpp` and `#include` it in your project! If you want to `#include` it as `<stypox/event_notifier.hpp>` you need to add `-IPATH/TO/event-notifier/include` to your compiler options. Note: it requires C++17, so add to your compiler options `-std=c++17`.
 
 # Example
 ```cpp
-#include <stypox/event_notifier.h>
+#include <stypox/event_notifier.hpp>
 #include <iostream>
 using stypox::EventNotifier;
 

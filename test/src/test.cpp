@@ -1,4 +1,4 @@
-#include <stypox/event_notifier.h>
+#include <stypox/event_notifier.hpp>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 using namespace stypox;
