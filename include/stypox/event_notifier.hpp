@@ -1,5 +1,5 @@
-#ifndef _STYPOX_EVENT_NOTIFIER_H_
-#define _STYPOX_EVENT_NOTIFIER_H_
+#ifndef _STYPOX_EVENT_NOTIFIER_HPP_
+#define _STYPOX_EVENT_NOTIFIER_HPP_
 #include <functional>
 #include <map>
 #include <memory>
